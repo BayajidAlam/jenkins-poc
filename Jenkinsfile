@@ -85,9 +85,16 @@ pipeline {
                       -v "${SITE_DIR}:/usr/share/nginx/html:ro" \
                       nginx:alpine
 
-                    # Wait for nginx to come up, then verify
+                    # Wait for nginx to come up, then verify.
+                    # The Jenkins container has its own network namespace,
+                    # so `localhost` inside it is NOT the host. We hit the
+                    # host via the docker bridge gateway IP, discovered from
+                    # /proc/net/route (no `ip` command in the jenkins image).
                     sleep 3
-                    curl -fsS "http://localhost:${DEPLOY_PORT}/" | grep -q "Hello World"
+                    HOST_IP=$(awk '/^00000000/ {print $3}' /proc/net/route | head -1 | while read hex; do
+                        printf '%d.%d.%d.%d\n' "0x${hex:6:2}" "0x${hex:4:2}" "0x${hex:2:2}" "0x${hex:0:2}"
+                    done)
+                    curl -fsS "http://${HOST_IP}:${DEPLOY_PORT}/" | grep -q "Hello World"
                     echo "Deployment verified: Hello World is live on host port ${DEPLOY_PORT}."
                 '''
             }
