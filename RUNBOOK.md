@@ -24,6 +24,41 @@ with Docker + a GitHub PAT).
 8. [Bugs found + fixes applied](#8-bugs-found--fixes-applied)
 9. [Tear down](#9-tear-down)
 10. [Re-running the pipeline](#10-re-running-the-pipeline)
+11. [Coverage checklist (what the runbook covers)](#11-coverage-checklist-what-the-runbook-covers)
+
+---
+
+## 11. Coverage checklist (what the runbook covers)
+
+The runbook + `bootstrap-poc.sh` are designed so that **everything in
+the current working state is reproducible**. Use this table as a
+final-check before you commit any environment state to memory:
+
+| Component | Reproduced via | Section / Step |
+|---|---|---|
+| Git clone of `BayajidAlam/jenkins-poc` | Bootstrap §3 / Manual §4.1 | `git clone ...` |
+| Git identity (Bayajid Alam) | Bootstrap step 2 | `git config --global user.{name,email}` |
+| Git remote with embedded PAT | Bootstrap step 2 | `git remote set-url origin https://USER:PAT@...` |
+| `.env` containing PAT (gitignored) | Manual §4.2 | `echo ghp_... > .env` |
+| `.gitignore` (`.env`, `jenkins-init/`) | Repo file | committed to main |
+| **`Jenkinsfile`** (current version) | Repo file | committed to main |
+| **`docker-compose.yml`** (current version) | Repo file | committed to main |
+| **`index.html`** | Repo file | committed to main |
+| **`bootstrap-poc.sh`** | Repo file (executable) | committed to main |
+| **`RUNBOOK.md`** (this file) | Repo file | committed to main |
+| `/var/jenkins-deploy/hello-world-cd/` host dir | Bootstrap step 3 / Manual §4.3 | `sudo mkdir -p ... && sudo chmod 777 ...` |
+| Jenkins init script (skips wizard) | Bootstrap step 4 | dropped into jenkins_home volume at `/init.groovy.d/` |
+| Jenkins container (image, ports, mounts) | `docker compose up -d` (step 5) | compose file |
+| Plugins installed | Bootstrap step 6 | `scriptText` POST with install-list |
+| Plugins activated | Bootstrap step 6 | `safeRestart` |
+| `github-pat` credential | Bootstrap step 7 | `scriptText` POST |
+| `hello-world` pipeline job | Bootstrap step 8 | `scriptText` POST |
+| GitHub webhook (Poridhi proxy → Jenkins) | Bootstrap step 9 | GitHub REST API PATCH/POST |
+| End-to-end build passes | Bootstrap step 10–11 | push commit, poll Jenkins |
+| Live site returns HTTP 200 | Bootstrap step 12 | `curl http://localhost:8088/` |
+
+When every item above can be regenerated from a fresh VM by re-running
+the runbook, the POC is fully documented.
 
 ---
 
@@ -260,14 +295,16 @@ store.addCredentials(Domain.global(),
     'github-pat',
     'GitHub PAT for BayajidAlam/jenkins-poc',
     'BayajidAlam',
-    new File('/var/jenkins_home/.env').text.trim()
+    '<PASTE_YOUR_PAT_HERE>'
   )
 )
 ```
 
-> **Note:** the Groovy script reads the PAT from
-> `/var/jenkins_home/.env`. Either drop a copy of `.env` there, or
-> hardcode the PAT in the script (less safe).
+> **Note:** paste the PAT directly into the `<PASTE_YOUR_PAT_HERE>`
+> placeholder. This is the simplest manual path. For better security,
+> mount `.env` into the container and read it with
+> `new File('/var/jenkins_home/.env').text.trim()` — but that requires
+> adding it to `docker-compose.yml`'s volumes section.
 
 ### 4.9 — Create the pipeline job
 

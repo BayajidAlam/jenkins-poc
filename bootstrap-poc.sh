@@ -255,8 +255,11 @@ WEBHOOK_URL="${PROXY_BASE}${WEBHOOK_PATH}"
 log "  webhook URL: ${WEBHOOK_URL}"
 
 # Find existing or create new
+# (Use awk + a state machine to capture only top-level "id" of the
+#  Repository-hook objects, not nested "node_id".)
 EXISTING=$(curl -fsS -H "Authorization: Bearer ${PAT}" \
   "https://api.github.com/repos/BayajidAlam/jenkins-poc/hooks" \
+  | grep -oE '\{[^{}]*"id":[0-9]+[^{}]*\}' \
   | grep -oE '"id":[0-9]+' | head -1 | cut -d: -f2 || true)
 
 if [[ -n "$EXISTING" ]]; then
