@@ -1,0 +1,19 @@
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: jenkins
+    restart: unless-stopped
+    user: root
+    ports:
+      - "8080:8080"   # Jenkins web UI
+      - "50000:50000" # Jenkins agent (JNLP) port
+      - "80:80"       # Deployed "Hello World" site served by nginx
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      # Mount the host Docker socket so the Deploy stage can launch nginx.
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=true
+
+volumes:
+  jenkins_home:
