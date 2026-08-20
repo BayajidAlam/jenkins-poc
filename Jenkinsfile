@@ -1,116 +1,125 @@
 pipeline {
     agent any
 
-    options {
-        timestamps()
-        timeout(time: 10, unit: 'MINUTES')
-        disableConcurrentBuilds()
-        buildDiscarder(logRotator(numToKeepStr: '10'))
-    }
 
-    triggers {
-        githubPush()
+    parameters {
+        choice(name: 'BRANCH', choices: ['main', 'develop', 'feature/*'], description: 'Git branch')
+        choice(name: 'ENV',    choices: ['dev', 'staging', 'prod'],  description: 'Target environment')
     }
 
     environment {
-        DEPLOY_PORT = '8088'
-        SITE_NAME   = 'hello-world-cd'
+        REPO_URL    = 'https://github.com/BayajidAlam/jenkins-poc.git'
+        DEPLOY_ROOT = '/var/jenkins-deploy'
     }
 
     stages {
-        stage('Checkout') {
+        stage('application') {
             steps {
-                checkout scm
+                dir('application') {
+                    checkout([$class: 'GitSCM',
+                        branches: [[name: "*/${BRANCH}"]],
+                        userRemoteConfigs: [[
+                            credentialsId: 'github-pat',
+                            url: "${REPO_URL}"
+                        ]]
+                    ])
+                }
             }
         }
 
         stage('Build') {
             steps {
-                echo 'Hello, World! - Building the application...'
-                echo "Branch: ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'N/A'}"
-                echo "Commit: ${env.GIT_COMMIT ?: 'N/A'}"
-                echo "Author: ${env.GIT_AUTHOR_NAME ?: 'N/A'}"
                 sh '''
-                    set -eux
+                    cd application
                     mkdir -p build
                     date -u +'%Y-%m-%dT%H:%M:%SZ' > build/build-info.txt
                     echo "Built from commit $(git rev-parse --short HEAD)" >> build/build-info.txt
-                    echo 'Build artifacts ready.'
+                    echo "Branch: ${BRANCH}" >> build/build-info.txt
+                    echo "Env:    ${ENV}"    >> build/build-info.txt
                 '''
             }
         }
 
         stage('Test') {
             steps {
-                echo 'Running tests...'
                 sh '''
-                    set -eux
+                    cd application
                     test -f index.html
                     grep -q "Hello World" index.html
-                    echo 'All tests passed.'
                 '''
             }
         }
 
         stage('Package') {
             steps {
-                echo 'Packaging the static site...'
-                sh 'tar -czf build/site.tar.gz index.html'
-                archiveArtifacts artifacts: 'build/site.tar.gz', fingerprint: true
+                sh 'tar -czf site.tar.gz -C application index.html'
+                archiveArtifacts artifacts: 'site.tar.gz', fingerprint: true
             }
         }
 
         stage('Deploy') {
             steps {
-                echo 'Deploying Hello World site...'
+                script {
+                    def safeBranch = BRANCH.replaceAll('/', '-')
+                    def envPort = [dev: '8088', staging: '8089', prod: '8090']
+                    def port = envPort[ENV]
+
+                    def ts  = sh(returnStdout: true, script: "date -u +'%Y%m%dT%H%M%SZ'").trim()
+                    def sha = sh(returnStdout: true, script: "git -C application rev-parse --short HEAD").trim()
+
+                    env.SITE_NAME = "${safeBranch}-${ENV}-${ts}-${sha}"
+                    env.SITE_DIR  = "${DEPLOY_ROOT}/${env.SITE_NAME}"
+                    env.PORT      = port
+
+                    echo "Site: ${env.SITE_NAME} on port ${env.PORT}"
+                }
+
                 sh '''#!/bin/bash
                     set -eux
-                    # Stop any previous deployment
-                    docker rm -f "${SITE_NAME}" || true
 
-                    # Copy the built site to a persistent location on the
-                    # Docker host. The Jenkins workspace is wiped by
-                    # cleanWs() in the `post { always }` block, so we must
-                    # not mount the workspace directly — nginx would serve
-                    # an empty directory after every build.
-                    SITE_DIR="/var/jenkins-deploy/${SITE_NAME}"
+                    # Discover host gateway (Jenkins container has its own net ns).
+                    HEX_GW=$(awk 'NR>1 && $2=="00000000" {print $3}' /proc/net/route | head -1 | tr -d ' ')
+                    HOST_IP=$(printf '%d.%d.%d.%d\\n' "0x${HEX_GW:6:2}" "0x${HEX_GW:4:2}" "0x${HEX_GW:2:2}" "0x${HEX_GW:0:2}")
+
                     mkdir -p "${SITE_DIR}"
-                    cp -f index.html "${SITE_DIR}/"
+                    cp -f application/index.html "${SITE_DIR}/"
 
-                    # Serve the static site on host port 8088 -> container 80.
+                    # Prune older <branch>-<env>-* containers before starting the new one.
+                    docker ps -a --format '{{.Names}}' \
+                      | grep "^$(echo ${SITE_NAME} | sed 's/-[0-9].*//')-" \
+                      | grep -v "^${SITE_NAME}$" \
+                      | xargs -r docker rm -f || true
+
                     docker run -d \
                       --name "${SITE_NAME}" \
                       --restart unless-stopped \
-                      -p "${DEPLOY_PORT}:80" \
+                      -p "${PORT}:80" \
                       -v "${SITE_DIR}:/usr/share/nginx/html:ro" \
                       nginx:alpine
 
-                    # Wait for nginx to come up, then verify.
-                    # The Jenkins container has its own network namespace,
-                    # so `localhost` inside it is NOT the host. We hit the
-                    # host via the docker bridge gateway IP, discovered from
-                    # /proc/net/route (no `ip` command in the jenkins image).
                     sleep 3
-                    HEX_GW=$(awk 'NR>1 && $2=="00000000" {print $3}' /proc/net/route | head -1 | tr -d ' ')
-                    HOST_IP=$(printf '%d.%d.%d.%d\n' "0x${HEX_GW:6:2}" "0x${HEX_GW:4:2}" "0x${HEX_GW:2:2}" "0x${HEX_GW:0:2}")
-                    echo "Host gateway: ${HOST_IP}"
-                    curl -fsS "http://${HOST_IP}:${DEPLOY_PORT}/" | grep -q "Hello World"
-                    echo "Deployment verified: Hello World is live on host port ${DEPLOY_PORT}."
+                    curl -fsS "http://${HOST_IP}:${PORT}/" | grep -q "Hello World"
+                    echo "Live at http://${HOST_IP}:${PORT}/"
+                '''
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                sh '''
+                    SAFE_PREFIX=$(echo "${SITE_NAME}" | sed 's/-[0-9]\\{8\\}T.*//')
+                    find "${DEPLOY_ROOT}" -maxdepth 1 -type d \
+                      -name "${SAFE_PREFIX}-*" \
+                      ! -name "${SITE_NAME}" \
+                      -exec rm -rf {} +
                 '''
             }
         }
     }
 
     post {
-        success {
-            echo 'Pipeline completed successfully! 🎉 — Hello World is live.'
-        }
-        failure {
-            echo 'Pipeline failed. Check the logs above.'
-        }
-        always {
-            echo 'Cleaning up workspace...'
-            cleanWs()
-        }
+        success { echo "Done — ${env.SITE_NAME} on port ${env.PORT}" }
+        failure { echo 'Failed. Check logs.' }
+        always  { cleanWs() }
     }
 }
