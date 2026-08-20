@@ -68,14 +68,21 @@ pipeline {
                     # Stop any previous deployment
                     docker rm -f "${SITE_NAME}" || true
 
-                    # Serve the static site on host port 8088 -> container 80
-                    # (host port 80 is already used by the Jenkins container's
-                    # 80:80 mapping in docker-compose.yml, so we use 8088 instead)
+                    # Copy the built site to a persistent location on the
+                    # Docker host. The Jenkins workspace is wiped by
+                    # cleanWs() in the `post { always }` block, so we must
+                    # not mount the workspace directly — nginx would serve
+                    # an empty directory after every build.
+                    SITE_DIR="/var/jenkins-deploy/${SITE_NAME}"
+                    mkdir -p "${SITE_DIR}"
+                    cp -f index.html "${SITE_DIR}/"
+
+                    # Serve the static site on host port 8088 -> container 80.
                     docker run -d \
                       --name "${SITE_NAME}" \
                       --restart unless-stopped \
                       -p "${DEPLOY_PORT}:80" \
-                      -v "${WORKSPACE}:/usr/share/nginx/html:ro" \
+                      -v "${SITE_DIR}:/usr/share/nginx/html:ro" \
                       nginx:alpine
 
                     # Wait for nginx to come up, then verify
