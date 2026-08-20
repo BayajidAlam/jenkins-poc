@@ -27,7 +27,7 @@ with Docker + a GitHub PAT).
 
 ---
 
-## 11. Coverage checklist (what the runbook covers)
+## 10. Coverage checklist (what the runbook covers)
 
 The runbook + `bootstrap-poc.sh` are designed so that **everything in
 the current working state is reproducible**. Use this table as a
@@ -35,17 +35,17 @@ final-check before you commit any environment state to memory:
 
 | Component | Reproduced via | Section / Step |
 |---|---|---|
-| Git clone of `BayajidAlam/jenkins-poc` | Bootstrap §3 / Manual §4.1 | `git clone ...` |
+| Git clone of `BayajidAlam/jenkins-poc` | Bootstrap §2 / Manual §3.1 | `git clone ...` |
 | Git identity (Bayajid Alam) | Bootstrap step 2 | `git config --global user.{name,email}` |
 | Git remote with embedded PAT | Bootstrap step 2 | `git remote set-url origin https://USER:PAT@...` |
-| `.env` containing PAT (gitignored) | Manual §4.2 | `echo ghp_... > .env` |
+| `.env` containing PAT (gitignored) | Manual §3.2 | `echo ghp_... > .env` |
 | `.gitignore` (`.env`, `jenkins-init/`) | Repo file | committed to main |
 | **`Jenkinsfile`** (current version) | Repo file | committed to main |
 | **`docker-compose.yml`** (current version) | Repo file | committed to main |
 | **`index.html`** | Repo file | committed to main |
 | **`bootstrap-poc.sh`** | Repo file (executable) | committed to main |
 | **`RUNBOOK.md`** (this file) | Repo file | committed to main |
-| `/var/jenkins-deploy/hello-world-cd/` host dir | Bootstrap step 3 / Manual §4.3 | `sudo mkdir -p ... && sudo chmod 777 ...` |
+| `/var/jenkins-deploy/hello-world-cd/` host dir | Bootstrap step 3 / Manual §3.3 | `sudo mkdir -p ... && sudo chmod 777 ...` |
 | Jenkins init script (skips wizard) | Bootstrap step 4 | dropped into jenkins_home volume at `/init.groovy.d/` |
 | Jenkins container (image, ports, mounts) | `docker compose up -d` (step 5) | compose file |
 | Plugins installed | Bootstrap step 6 | `scriptText` POST with install-list |
@@ -152,8 +152,8 @@ sudo chmod 777 /var/jenkins-deploy /var/jenkins-deploy/hello-world-cd
 
 ### 4.4 — Files this repo must contain
 
-- `Jenkinsfile`        — the pipeline (see §5)
-- `docker-compose.yml` — the Jenkins container setup (see §6)
+- `Jenkinsfile`        — the pipeline (see §4)
+- `docker-compose.yml` — the Jenkins container setup (see §5)
 - `index.html`         — the static "Hello, World!" page
 - `.gitignore`         — at minimum: `.env` and `jenkins-init/`
 
