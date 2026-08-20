@@ -63,7 +63,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo 'Deploying Hello World site...'
-                sh '''
+                sh '''#!/bin/bash
                     set -eux
                     # Stop any previous deployment
                     docker rm -f "${SITE_NAME}" || true
