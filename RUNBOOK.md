@@ -14,17 +14,16 @@ with Docker + a GitHub PAT).
 
 ## Table of Contents
 
-1. [Architecture overview](#1-architecture-overview)
-2. [Prerequisites](#2-prerequisites)
-3. [One-shot bootstrap](#3-one-shot-bootstrap)
-4. [Step-by-step (manual reproduction)](#4-step-by-step-manual-reproduction)
-5. [Pipeline file (`Jenkinsfile`)](#5-pipeline-file-jenkinsfile)
-6. [Compose file (`docker-compose.yml`)](#6-compose-file-docker-composeyml)
-7. [Operational checks](#7-operational-checks)
-8. [Bugs found + fixes applied](#8-bugs-found--fixes-applied)
-9. [Tear down](#9-tear-down)
-10. [Re-running the pipeline](#10-re-running-the-pipeline)
-11. [Coverage checklist (what the runbook covers)](#11-coverage-checklist-what-the-runbook-covers)
+1. [Prerequisites](#1-prerequisites)
+2. [One-shot bootstrap](#2-one-shot-bootstrap)
+3. [Step-by-step (manual reproduction)](#3-step-by-step-manual-reproduction)
+4. [Pipeline file (`Jenkinsfile`)](#4-pipeline-file-jenkinsfile)
+5. [Compose file (`docker-compose.yml`)](#5-compose-file-docker-composeyml)
+6. [Operational checks](#6-operational-checks)
+7. [Bugs found + fixes applied](#7-bugs-found--fixes-applied)
+8. [Tear down](#8-tear-down)
+9. [Re-running the pipeline](#9-re-running-the-pipeline)
+10. [Coverage checklist (what the runbook covers)](#10-coverage-checklist-what-the-runbook-covers)
 
 ---
 
@@ -59,39 +58,6 @@ final-check before you commit any environment state to memory:
 
 When every item above can be regenerated from a fresh VM by re-running
 the runbook, the POC is fully documented.
-
----
-
-## 1. Architecture overview
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│ GitHub (BayajidAlam/jenkins-poc)                                      │
-│   │                                                                     │
-│   │ POST /github-webhook/  (push event)                                │
-│   ▼                                                                     │
-│ Poridhi lb(jenkins) ─── HTTPS ──▶ Jenkins container :8080            │
-│                                       (host port 8080)                  │
-│                                       │                                 │
-│                                  pipeline runs                          │
-│                                       │                                 │
-│                                       ▼                                 │
-│   docker run nginx:alpine                                                │
-│      binds host /var/jenkins-deploy/hello-world-cd                      │
-│                  to container /usr/share/nginx/html                     │
-│                                       │                                 │
-│                                       ▼                                 │
-│             Poridhi lb (app)  ◀──── serves Hello World               │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-The Jenkins container has:
-- Host docker socket mounted (`/var/run/docker.sock`)
-- Host docker CLI mounted (`/usr/bin/docker`)
-- Host deploy dir mounted (`/var/jenkins-deploy`)
-
-So the pipeline runs as **root on the host** as far as Docker is concerned,
-but stays inside its own filesystem namespace for everything else.
 
 ---
 
