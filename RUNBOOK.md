@@ -12,6 +12,27 @@ with Docker + a GitHub PAT).
 
 ---
 
+Architecture
+┌────────────────────────────────────────────────────────────────────────┐
+│ GitHub (BayajidAlam/jenkins-poc)                                      │
+│   │                                                                     │
+│   │ POST /github-webhook/  (push event)                                │
+│   ▼                                                                     │
+│ Poridhi lb(jenkins) ─── HTTPS ──▶ Jenkins container :8080            │
+│                                       (host port 8080)                  │
+│                                       │                                 │
+│                                  pipeline runs                          │
+│                                       │                                 │
+│                                       ▼                                 │
+│   docker run nginx:alpine                                                │
+│      binds host /var/jenkins-deploy/hello-world-cd                      │
+│                  to container /usr/share/nginx/html                     │
+│                                       │                                 │
+│                                       ▼                                 │
+│             Poridhi lb (app)  ◀──── serves Hello World               │
+└────────────────────────────────────────────────────────────────────────┘
+
+
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
