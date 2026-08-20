@@ -9,24 +9,34 @@ pipeline {
     }
 
     triggers {
-        // Build on every push to the GitHub webhook.
         githubPush()
     }
 
+    environment {
+        DEPLOY_PORT = '8088'
+        SITE_NAME   = 'hello-world-cd'
+    }
+
     stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Build') {
             steps {
                 echo 'Hello, World! - Building the application...'
-                echo "Branch: ${env.GIT_BRANCH ?: env.BRANCH_NAME ?: 'N/A'}"
+                echo "Branch: ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'N/A'}"
                 echo "Commit: ${env.GIT_COMMIT ?: 'N/A'}"
                 echo "Author: ${env.GIT_AUTHOR_NAME ?: 'N/A'}"
-                sh """
+                sh '''
                     set -eux
                     mkdir -p build
                     date -u +'%Y-%m-%dT%H:%M:%SZ' > build/build-info.txt
-                    echo "Built from commit ${GIT_COMMIT:-local}" >> build/build-info.txt
+                    echo "Built from commit $(git rev-parse --short HEAD)" >> build/build-info.txt
                     echo 'Build artifacts ready.'
-                """
+                '''
             }
         }
 
@@ -56,20 +66,22 @@ pipeline {
                 sh '''
                     set -eux
                     # Stop any previous deployment
-                    docker rm -f hello-world-cd || true
+                    docker rm -f "${SITE_NAME}" || true
 
-                    # Serve the static site on port 80 of this container
+                    # Serve the static site on host port 8088 -> container 80
+                    # (host port 80 is already used by the Jenkins container's
+                    # 80:80 mapping in docker-compose.yml, so we use 8088 instead)
                     docker run -d \
-                      --name hello-world-cd \
+                      --name "${SITE_NAME}" \
                       --restart unless-stopped \
-                      -p 80:80 \
-                      -v "$WORKSPACE:/usr/share/nginx/html:ro" \
+                      -p "${DEPLOY_PORT}:80" \
+                      -v "${WORKSPACE}:/usr/share/nginx/html:ro" \
                       nginx:alpine
 
                     # Wait for nginx to come up, then verify
                     sleep 3
-                    curl -fsS http://localhost/ | grep -q "Hello World"
-                    echo 'Deployment verified: Hello World is live.'
+                    curl -fsS "http://localhost:${DEPLOY_PORT}/" | grep -q "Hello World"
+                    echo "Deployment verified: Hello World is live on host port ${DEPLOY_PORT}."
                 '''
             }
         }

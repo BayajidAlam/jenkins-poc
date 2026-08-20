@@ -7,13 +7,16 @@ services:
     ports:
       - "8080:8080"   # Jenkins web UI
       - "50000:50000" # Jenkins agent (JNLP) port
-      - "80:80"       # Deployed "Hello World" site served by nginx
+      - "8088:8088"   # Deployed "Hello World" site served by nginx (host 8088 -> container 8088 -> nginx :80)
     volumes:
       - jenkins_home:/var/jenkins_home
       # Mount the host Docker socket so the Deploy stage can launch nginx.
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - JAVA_OPTS=-Djenkins.install.runSetupWizard=true
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=true -Dhudson.security.csrf.mintcrumbdisabled=true -Dhudson.security.csrf.requestfield=
+      # CSRF disabled because Jenkins sits behind a Poridhi reverse proxy
+      # that may strip/alter the crumb header. Webhooks from GitHub still
+      # work (they POST without a crumb anyway).
 
 volumes:
   jenkins_home:
