@@ -14,55 +14,23 @@ with Docker + a GitHub PAT).
 
 ## Table of Contents
 
-1. [Prerequisites](#1-prerequisites)
-2. [One-shot bootstrap](#2-one-shot-bootstrap)
-3. [Step-by-step (manual reproduction)](#3-step-by-step-manual-reproduction)
-4. [Pipeline file (`Jenkinsfile`)](#4-pipeline-file-jenkinsfile)
-5. [Compose file (`docker-compose.yml`)](#5-compose-file-docker-composeyml)
-6. [Operational checks](#6-operational-checks)
-7. [Bugs found + fixes applied](#7-bugs-found--fixes-applied)
-8. [Tear down](#8-tear-down)
-9. [Re-running the pipeline](#9-re-running-the-pipeline)
-10. [Coverage checklist (what the runbook covers)](#10-coverage-checklist-what-the-runbook-covers)
+1. [Prerequisites](#prerequisites)
+2. [One-shot bootstrap](#one-shot-bootstrap)
+3. [Step-by-step (manual reproduction)](#step-by-step-manual-reproduction)
+4. [Pipeline file (`Jenkinsfile`)](#pipeline-file-jenkinsfile)
+5. [Compose file (`docker-compose.yml`)](#compose-file-docker-compose-yml)
+6. [Operational checks](#operational-checks)
+7. [Bugs found + fixes applied](#bugs-found-fixes-applied)
+8. [Tear down](#tear-down)
+9. [Re-running the pipeline](#re-running-the-pipeline)
+10. [Coverage checklist (what the runbook covers)](#coverage-checklist-what-the-runbook-covers)
+
+
+
 
 ---
 
-## 10. Coverage checklist (what the runbook covers)
-
-The runbook + `bootstrap-poc.sh` are designed so that **everything in
-the current working state is reproducible**. Use this table as a
-final-check before you commit any environment state to memory:
-
-| Component | Reproduced via | Section / Step |
-|---|---|---|
-| Git clone of `BayajidAlam/jenkins-poc` | Bootstrap §2 / Manual §3.1 | `git clone ...` |
-| Git identity (Bayajid Alam) | Bootstrap step 2 | `git config --global user.{name,email}` |
-| Git remote with embedded PAT | Bootstrap step 2 | `git remote set-url origin https://USER:PAT@...` |
-| `.env` containing PAT (gitignored) | Manual §3.2 | `echo ghp_... > .env` |
-| `.gitignore` (`.env`, `jenkins-init/`) | Repo file | committed to main |
-| **`Jenkinsfile`** (current version) | Repo file | committed to main |
-| **`docker-compose.yml`** (current version) | Repo file | committed to main |
-| **`index.html`** | Repo file | committed to main |
-| **`bootstrap-poc.sh`** | Repo file (executable) | committed to main |
-| **`RUNBOOK.md`** (this file) | Repo file | committed to main |
-| `/var/jenkins-deploy/hello-world-cd/` host dir | Bootstrap step 3 / Manual §3.3 | `sudo mkdir -p ... && sudo chmod 777 ...` |
-| Jenkins init script (skips wizard) | Bootstrap step 4 | dropped into jenkins_home volume at `/init.groovy.d/` |
-| Jenkins container (image, ports, mounts) | `docker compose up -d` (step 5) | compose file |
-| Plugins installed | Bootstrap step 6 | `scriptText` POST with install-list |
-| Plugins activated | Bootstrap step 6 | `safeRestart` |
-| `github-pat` credential | Bootstrap step 7 | `scriptText` POST |
-| `hello-world` pipeline job | Bootstrap step 8 | `scriptText` POST |
-| GitHub webhook (Poridhi proxy → Jenkins) | Bootstrap step 9 | GitHub REST API PATCH/POST |
-| End-to-end build passes | Bootstrap step 10–11 | push commit, poll Jenkins |
-| Live site returns HTTP 200 | Bootstrap step 12 | `curl http://localhost:8088/` |
-
-When every item above can be regenerated from a fresh VM by re-running
-the runbook, the POC is fully documented.
-
----
-
-## 2. Prerequisites
-
+## 1. Prerequisites
 You need exactly three things before you start:
 
 | Prerequisite | How to verify | How to set |
@@ -76,8 +44,7 @@ runs) is automated by the bootstrap script.
 
 ---
 
-## 3. One-shot bootstrap
-
+## 2. One-shot bootstrap
 The single script `bootstrap-poc.sh` (in this repo) does all of:
 
 1. Clones the GitHub repo
@@ -109,11 +76,10 @@ The script is idempotent — running it again skips already-completed steps.
 
 ---
 
-## 4. Step-by-step (manual reproduction)
-
+## 3. Step-by-step (manual reproduction)
 If you want to do it by hand (no script), follow these in order.
 
-### 4.1 — Clone the repo and set identity
+### 3.1 — Clone the repo and set identity
 
 ```bash
 cd /home/poridhian/code
@@ -124,7 +90,7 @@ git config --global user.name  "Bayajid Alam"
 git config --global user.email "bayajidalam@users.noreply.github.com"
 ```
 
-### 4.2 — Store PAT and embed it in the remote
+### 3.2 — Store PAT and embed it in the remote
 
 ```bash
 echo "ghp_YOUR_TOKEN_HERE" > .env     # gitignored
@@ -139,7 +105,7 @@ git remote set-url origin \
 git fetch origin main
 ```
 
-### 4.3 — Persistent deploy directory on the host
+### 3.3 — Persistent deploy directory on the host
 
 The pipeline writes the built site here, and the nginx container
 mounts the same path. **This must exist on the host** before the
@@ -150,21 +116,21 @@ sudo mkdir -p /var/jenkins-deploy/hello-world-cd
 sudo chmod 777 /var/jenkins-deploy /var/jenkins-deploy/hello-world-cd
 ```
 
-### 4.4 — Files this repo must contain
+### 3.4 — Files this repo must contain
 
-- `Jenkinsfile`        — the pipeline (see §4)
-- `docker-compose.yml` — the Jenkins container setup (see §5)
+- `Jenkinsfile`        — the pipeline
+- `docker-compose.yml` — the Jenkins container setup
 - `index.html`         — the static "Hello, World!" page
 - `.gitignore`         — at minimum: `.env` and `jenkins-init/`
 
-### 4.5 — Bring Jenkins up
+### 3.5 — Bring Jenkins up
 
 ```bash
 docker compose up -d
 # wait until "Jenkins is fully up and running" appears in `docker logs jenkins`
 ```
 
-### 4.6 — Skip the setup wizard
+### 3.6 — Skip the setup wizard
 
 Place a Groovy file at `$JENKINS_HOME/init.groovy.d/01-setup.groovy`.
 The jenkins_home volume in this repo lives at
@@ -200,7 +166,7 @@ docker run --rm \
 
 Then `docker compose restart jenkins`.
 
-### 4.7 — Install the plugins
+### 3.7 — Install the plugins
 
 Either let Jenkins suggest-and-install at first boot, or drive it via
 the Groovy script console (`/scriptText` on the Jenkins API). The
@@ -236,7 +202,7 @@ After this, restart Jenkins so the new plugins activate:
 curl -X POST http://localhost:8080/safeRestart
 ```
 
-### 4.8 — Create the GitHub credential
+### 3.8 — Create the GitHub credential
 
 Via script console:
 
@@ -272,7 +238,7 @@ store.addCredentials(Domain.global(),
 > `new File('/var/jenkins_home/.env').text.trim()` — but that requires
 > adding it to `docker-compose.yml`'s volumes section.
 
-### 4.9 — Create the pipeline job
+### 3.9 — Create the pipeline job
 
 Via script console:
 
@@ -301,7 +267,7 @@ job.description = 'GitHub → Jenkins pipeline for BayajidAlam/jenkins-poc'
 job.save()
 ```
 
-### 4.10 — Configure the GitHub webhook
+### 3.10 — Configure the GitHub webhook
 
 URL:
 ```
@@ -333,7 +299,7 @@ curl -X POST \
   }'
 ```
 
-### 4.11 — Verify
+### 3.11 — Verify
 
 ```bash
 # ping the webhook (GitHub will POST a `ping` payload)
@@ -366,8 +332,7 @@ Both should return HTTP 200 with the updated `index.html`.
 
 ---
 
-## 5. Pipeline file (`Jenkinsfile`)
-
+## 4. Pipeline file (`Jenkinsfile`)
 ```groovy
 pipeline {
     agent any
@@ -465,8 +430,7 @@ pipeline {
 
 ---
 
-## 6. Compose file (`docker-compose.yml`)
-
+## 5. Compose file (`docker-compose.yml`)
 ```yaml
 services:
   jenkins:
@@ -495,8 +459,7 @@ volumes:
 
 ---
 
-## 7. Operational checks
-
+## 6. Operational checks
 ```bash
 # Jenkins reachable?
 curl -fsS http://localhost:8080/api/json | head -c 200 ; echo
@@ -519,8 +482,7 @@ curl -s -H "Authorization: Bearer $(cat .env)" \
 
 ---
 
-## 8. Bugs found + fixes applied
-
+## 7. Bugs found + fixes applied
 These are the issues I hit while wiring the POC. Each is captured in a
 git commit on `main` so you can `git log --oneline` to see them.
 
@@ -551,8 +513,7 @@ git log --oneline
 
 ---
 
-## 9. Tear down
-
+## 8. Tear down
 ```bash
 # stop Jenkins, keep jenkins_home volume
 docker compose down
@@ -581,8 +542,7 @@ they survive `docker compose down`. They are wiped only by
 
 ---
 
-## 10. Re-running the pipeline
-
+## 9. Re-running the pipeline
 After the POC is up, triggering a build is just a push:
 
 ```bash
@@ -613,3 +573,36 @@ Or via the API:
 ```bash
 curl http://localhost:8080/job/hello-world/lastBuild/consoleText
 ```
+
+---
+
+## 10. Coverage checklist (what the runbook covers)
+The runbook + `bootstrap-poc.sh` are designed so that **everything in
+the current working state is reproducible**. Use this table as a
+final-check before you commit any environment state to memory:
+
+| Component | Reproduced via | Section / Step |
+|---|---|---|
+| Git clone of `BayajidAlam/jenkins-poc` | Section 2.1 / Section 3.1 | `git clone ...` |
+| Git identity (Bayajid Alam) | Section 2.2 | `git config --global user.{name,email}` |
+| Git remote with embedded PAT | Section 2.2 | `git remote set-url origin https://USER:PAT@...` |
+| `.env` containing PAT (gitignored) | Section 3.2 | `echo ghp_... > .env` |
+| `.gitignore` (`.env`, `jenkins-init/`) | Repo file | committed to main |
+| **`Jenkinsfile`** (current version) | Repo file | committed to main |
+| **`docker-compose.yml`** (current version) | Repo file | committed to main |
+| **`index.html`** | Repo file | committed to main |
+| **`bootstrap-poc.sh`** | Repo file (executable) | committed to main |
+| **`RUNBOOK.md`** (this file) | Repo file | committed to main |
+| `/var/jenkins-deploy/hello-world-cd/` host dir | Section 2.3 / Section 3.3 | `sudo mkdir -p ... && sudo chmod 777 ...` |
+| Jenkins init script (skips wizard) | Section 2.4 | dropped into jenkins_home volume at `/init.groovy.d/` |
+| Jenkins container (image, ports, mounts) | `docker compose up -d` (step 5) | compose file |
+| Plugins installed | Section 2.6 | `scriptText` POST with install-list |
+| Plugins activated | Section 2.6 | `safeRestart` |
+| `github-pat` credential | Section 2.7 | `scriptText` POST |
+| `hello-world` pipeline job | Section 2.8 | `scriptText` POST |
+| GitHub webhook (Poridhi proxy → Jenkins) | Section 2.9 | GitHub REST API PATCH/POST |
+| End-to-end build passes | Section 2.10–11 | push commit, poll Jenkins |
+| Live site returns HTTP 200 | Section 2.12 | `curl http://localhost:8088/` |
+
+When every item above can be regenerated from a fresh VM by re-running
+the runbook, the POC is fully documented.
