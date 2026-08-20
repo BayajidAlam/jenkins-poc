@@ -91,9 +91,9 @@ pipeline {
                     # host via the docker bridge gateway IP, discovered from
                     # /proc/net/route (no `ip` command in the jenkins image).
                     sleep 3
-                    HOST_IP=$(awk '/^00000000/ {print $3}' /proc/net/route | head -1 | while read hex; do
-                        printf '%d.%d.%d.%d\n' "0x${hex:6:2}" "0x${hex:4:2}" "0x${hex:2:2}" "0x${hex:0:2}"
-                    done)
+                    HEX_GW=$(awk 'NR>1 && $2=="00000000" {print $3}' /proc/net/route | head -1 | tr -d ' ')
+                    HOST_IP=$(printf '%d.%d.%d.%d\n' "0x${HEX_GW:6:2}" "0x${HEX_GW:4:2}" "0x${HEX_GW:2:2}" "0x${HEX_GW:0:2}")
+                    echo "Host gateway: ${HOST_IP}"
                     curl -fsS "http://${HOST_IP}:${DEPLOY_PORT}/" | grep -q "Hello World"
                     echo "Deployment verified: Hello World is live on host port ${DEPLOY_PORT}."
                 '''
