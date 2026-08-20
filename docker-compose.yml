@@ -19,6 +19,12 @@ services:
       # (The jenkins image doesn't include docker-cli; this lets the Deploy
       #  stage launch the nginx container using the host's docker binary.)
       - /usr/bin/docker:/usr/bin/docker:ro
+      # Bind-mount the persistent deploy directory from the host so the
+      # pipeline's `cp` and nginx's `-v` end up pointing at the SAME
+      # directory. Without this, the Jenkins container has its own
+      # /var/jenkins-deploy namespace, and the host's nginx mount would
+      # still serve stale files.
+      - /var/jenkins-deploy:/var/jenkins-deploy
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=true -Dhudson.security.csrf.mintcrumbdisabled=true -Dhudson.security.csrf.requestfield=
       # CSRF disabled because Jenkins sits behind a Poridhi reverse proxy
