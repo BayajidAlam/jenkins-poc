@@ -70,7 +70,7 @@ the runbook, the POC is fully documented.
 │   │                                                                     │
 │   │ POST /github-webhook/  (push event)                                │
 │   ▼                                                                     │
-│ Poridhi VSCode proxy ─── HTTPS ──▶ Jenkins container :8080            │
+│ Poridhi lb(jenkins) ─── HTTPS ──▶ Jenkins container :8080            │
 │                                       (host port 8080)                  │
 │                                       │                                 │
 │                                  pipeline runs                          │
@@ -81,7 +81,7 @@ the runbook, the POC is fully documented.
 │                  to container /usr/share/nginx/html                     │
 │                                       │                                 │
 │                                       ▼                                 │
-│              http://<host>:8088  ◀──── serves Hello World               │
+│             Poridhi lb (app)  ◀──── serves Hello World               │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
