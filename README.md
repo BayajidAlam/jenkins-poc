@@ -111,6 +111,10 @@ stages (`Checkout`, `Build`, `Test`, `Package`, `Deploy`) and the
 
 ## 8. View the deployed Hello World
 
+you will see a new build on jenkins:
+<img width="1751" height="983" alt="image" src="https://github.com/user-attachments/assets/7c0a39f3-fb1b-4c3b-a119-59d8fe7b0474" />
+
+
 The Deploy stage launches `nginx` on host port **8088**. View it via
 the Poridhi proxy:
 
@@ -120,6 +124,14 @@ https://6932b4db068c684dd55b0c6d_54745ff5.vscode.poridhi.io/proxy/8088/
 
 You should see the gradient "Hello, World!" page. Each successful push
 replaces the running container with the latest `index.html`.
+
+Exponse app though poridhi lb: 
+
+<img width="954" height="506" alt="image" src="https://github.com/user-attachments/assets/d7b06b42-96e0-4702-9016-307dac2b2495" />
+
+
+<img width="1460" height="919" alt="image" src="https://github.com/user-attachments/assets/27b0f9b7-2a74-4a59-8a67-0906d9f26d4b" />
+
 
 ## Troubleshooting
 
